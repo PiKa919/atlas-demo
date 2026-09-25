@@ -136,6 +136,7 @@ const SEED=[
 let DB,ACT,F={q:'',status:'',urg:'',ch:''},selected=null,CHANNEL='Phone';
 try{DB=JSON.parse(localStorage.getItem('atlas-db')||'null');ACT=JSON.parse(localStorage.getItem('atlas-act')||'null')}catch(e){DB=null}
 if(!DB||!DB.length){DB=structuredClone(SEED);ACT=[{t:'09:00',s:'Demo loaded with R101–R108.'}];save()}
+else{const KM={};SEED.forEach(s=>KM[s.id]=s.kind);let mig=false;DB.forEach(r=>{if(!r.kind){r.kind=KM[r.id]||'Breakdown';mig=true}});if(mig)save()}
 function save(){localStorage.setItem('atlas-db',JSON.stringify(DB));localStorage.setItem('atlas-act',JSON.stringify(ACT))}
 function resetDemo(){localStorage.removeItem('atlas-db');localStorage.removeItem('atlas-act');localStorage.removeItem('atlas-tour-seen');location.reload()}
 function urgency(r){const m=(r.msg+' '+r.note).toLowerCase();
