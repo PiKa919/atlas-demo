@@ -17,11 +17,11 @@ body{font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Inter,Ari
 .pin:hover{transform:scale(1.25)}
 #tour-hl{position:fixed;border:2px solid #38bdf8;border-radius:12px;box-shadow:0 0 0 4000px rgba(0,0,0,.6);z-index:60;pointer-events:none;transition:all .25s}
 ::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:#334155;border-radius:8px}
-canvas{max-height:220px}
+canvas{max-height:170px}
 </style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen">
-<div class="max-w-[1240px] mx-auto p-3 md:p-5">
+<div class="max-w-[1600px] mx-auto p-3 md:p-5">
 
 <!-- HEADER -->
 <header class="bg-slate-900 border border-slate-800 rounded-2xl px-4 py-3 flex flex-wrap items-center gap-3">
@@ -35,25 +35,29 @@ canvas{max-height:220px}
 <div id="stats" class="flex gap-2 ml-auto flex-wrap"></div>
 <button onclick="startTour()" class="text-xs border border-sky-500/50 text-sky-300 rounded-lg px-3 py-1.5">▶ Take tour</button>
 <button onclick="resetDemo()" class="text-xs text-slate-500 underline">reset</button>
-<nav class="flex gap-1 w-full md:w-auto text-sm">
-<button id="tab-board" onclick="setTab('board')" class="px-4 py-1.5 rounded-lg">Board</button>
-<button id="tab-map" onclick="setTab('map')" class="px-4 py-1.5 rounded-lg">Map</button>
-<button id="tab-insights" onclick="setTab('insights')" class="px-4 py-1.5 rounded-lg">Insights</button>
-</nav>
 </header>
 
-<!-- BOARD TAB -->
-<section id="view-board" class="grid lg:grid-cols-[1fr_360px] gap-3 mt-3">
+<!-- INSIGHTS ROW -->
+<section id="insights" class="grid md:grid-cols-3 gap-3 mt-3">
+<div class="bg-slate-900 border border-slate-800 rounded-2xl p-3"><p class="text-xs font-bold">Tickets by urgency <span class="font-normal text-slate-500">— follows filters</span></p><canvas id="c-urg"></canvas></div>
+<div class="bg-slate-900 border border-slate-800 rounded-2xl p-3"><p class="text-xs font-bold">Active load per tech</p><canvas id="c-tech"></canvas></div>
+<div class="bg-slate-900 border border-slate-800 rounded-2xl p-3"><p class="text-xs font-bold">Queue by status</p><canvas id="c-status"></canvas></div>
+</section>
+
+<!-- MAIN ROW -->
+<section class="grid xl:grid-cols-[1.2fr_1fr_1fr] lg:grid-cols-2 gap-3 mt-3 items-start">
+
+<!-- QUEUE -->
 <div>
 <div id="filters" class="bg-slate-900 border border-slate-800 rounded-2xl p-3 flex flex-wrap gap-2 items-center">
-<input id="q" oninput="F.q=this.value;render()" placeholder="Search…" class="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-sm w-36" />
-<select id="f-status" onchange="F.status=this.value;render()" class="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-sm">
+<input id="q" oninput="F.q=this.value;render()" placeholder="Search…" class="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-sm w-32" />
+<select onchange="F.status=this.value;render()" class="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-sm">
 <option value="">All statuses</option><option>Unassigned</option><option>Assigned</option><option>Scheduled</option><option>Waiting part</option><option>Needs info</option><option>Done</option>
 </select>
-<select id="f-urg" onchange="F.urg=this.value;render()" class="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-sm">
+<select onchange="F.urg=this.value;render()" class="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-sm">
 <option value="">All urgencies</option><option>Urgent</option><option>High</option><option>Normal</option><option>Low</option>
 </select>
-<select id="f-ch" onchange="F.ch=this.value;render()" class="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-sm">
+<select onchange="F.ch=this.value;render()" class="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-sm">
 <option value="">All channels</option><option>Email</option><option>WhatsApp</option><option>Phone</option>
 </select>
 <span id="count" class="text-xs text-slate-400 ml-auto"></span>
@@ -61,8 +65,11 @@ canvas{max-height:220px}
 <div id="doNext" class="mt-2 text-xs"></div>
 <div id="list" class="mt-2 space-y-2"></div>
 </div>
+
+<!-- DETAIL -->
 <div>
-<div id="intake" class="bg-slate-900 border border-slate-800 rounded-2xl p-3">
+<div id="detail" class="bg-slate-900 border border-slate-800 rounded-2xl p-3"><p class="text-sm text-slate-500">Select a ticket.</p></div>
+<div id="intake" class="bg-slate-900 border border-slate-800 rounded-2xl p-3 mt-3">
 <p class="text-xs font-bold text-slate-300">＋ Log request</p>
 <div class="grid grid-cols-3 gap-1 mt-2 text-xs">
 <button onclick="setChannel('Email')" id="ch-Email" class="border border-slate-700 rounded-lg py-1">Email</button>
@@ -73,35 +80,27 @@ canvas{max-height:220px}
 <input id="f-msg" placeholder="Message e.g. Freezer alarm, today" class="mt-2 w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-sm" />
 <button onclick="addRequest()" class="mt-2 w-full bg-sky-500 text-slate-950 font-bold rounded-lg py-2 text-sm">Add to queue</button>
 </div>
-<div id="detail" class="bg-slate-900 border border-slate-800 rounded-2xl p-3 mt-3"><p class="text-sm text-slate-500">Select a ticket.</p></div>
 <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3 mt-3">
 <p class="text-xs font-bold text-slate-300">Technicians</p>
 <div id="techs" class="mt-2 space-y-1.5"></div>
 </div>
-</div>
-</section>
-
-<!-- MAP TAB -->
-<section id="view-map" class="hidden mt-3 bg-slate-900 border border-slate-800 rounded-2xl p-4">
-<div class="flex flex-wrap items-center gap-2">
-<h2 class="font-bold text-sm">Simulated service area</h2>
-<span class="text-[11px] text-slate-500">Synthetic customer sites. Pin color = urgency. Pulsing = overdue.</span>
-</div>
-<svg id="sitemap" viewBox="0 0 100 62" class="w-full mt-2 rounded-xl bg-slate-950 border border-slate-800" style="min-height:280px"></svg>
-<div id="maplegend" class="flex gap-3 mt-2 text-[11px] text-slate-400 flex-wrap"></div>
-<div id="maplist" class="mt-2 grid md:grid-cols-2 gap-2 text-xs"></div>
-</section>
-
-<!-- INSIGHTS TAB -->
-<section id="view-insights" class="hidden mt-3 grid md:grid-cols-3 gap-3">
-<div class="bg-slate-900 border border-slate-800 rounded-2xl p-3"><p class="text-xs font-bold">Tickets by urgency</p><canvas id="c-urg"></canvas></div>
-<div class="bg-slate-900 border border-slate-800 rounded-2xl p-3"><p class="text-xs font-bold">Active load per tech</p><canvas id="c-tech"></canvas></div>
-<div class="bg-slate-900 border border-slate-800 rounded-2xl p-3"><p class="text-xs font-bold">Queue by status</p><canvas id="c-status"></canvas></div>
-<div class="bg-slate-900 border border-slate-800 rounded-2xl p-3 md:col-span-3">
+<div class="bg-slate-900 border border-slate-800 rounded-2xl p-3 mt-3">
 <p class="text-xs font-bold">Activity <span class="font-normal text-slate-500">— manager proof</span></p>
-<div id="activity" class="mt-2 space-y-1 max-h-56 overflow-auto text-xs"></div>
+<div id="activity" class="mt-2 space-y-1 max-h-48 overflow-auto text-xs"></div>
 <details class="mt-2 text-[11px] text-slate-500"><summary class="cursor-pointer underline">Assumptions + demo script</summary>
 <p class="mt-1">SLA Urgent 4h, High 24h, Normal 72h, Low 7d. Capacity 3 per tech. No real integrations. 60-sec flow: R101 assign T1 + visit → merge R104 → close R107 → copy reply for R102.</p></details>
+</div>
+</div>
+
+<!-- MAP -->
+<div id="dash-map" class="bg-slate-900 border border-slate-800 rounded-2xl p-3 lg:col-span-2 xl:col-span-1">
+<div class="flex flex-wrap items-center gap-2">
+<h2 class="font-bold text-sm">Service area</h2>
+<span class="text-[11px] text-slate-500">Synthetic sites · pulsing = overdue · click pin</span>
+</div>
+<svg id="sitemap" viewBox="0 0 100 62" class="w-full mt-2 rounded-xl bg-slate-950 border border-slate-800" style="min-height:300px"></svg>
+<div id="maplegend" class="flex gap-3 mt-2 text-[11px] text-slate-400 flex-wrap"></div>
+<div id="maplist" class="mt-2 grid sm:grid-cols-2 xl:grid-cols-1 gap-2 text-xs"></div>
 </div>
 </section>
 
@@ -134,7 +133,7 @@ const SEED=[
 {id:'R106',received:'2026-09-29T14:00:00',channel:'Email',customer:'C05',kind:'Parts wait',msg:'Waiting for the replacement part and an update.',status:'Waiting part',tech:'T2',visit:null,note:'Part ETA tomorrow 12:00.'},
 {id:'R107',received:'2026-09-30T15:00:00',channel:'WhatsApp',customer:'C06',kind:'Close-out',msg:'Thanks, the unit is running again.',status:'In progress',tech:'T3',visit:null,note:'Customer confirms fixed.'},
 {id:'R108',received:'2026-10-01T08:40:00',channel:'Email',customer:'C07',kind:'Breakdown',msg:'Send someone today for a pressure warning.',status:'Unassigned',tech:null,visit:null,note:'Confirm reading + site access.'}];
-let DB,ACT,F={q:'',status:'',urg:'',ch:''},selected=null,tab='board',CHANNEL='Phone';
+let DB,ACT,F={q:'',status:'',urg:'',ch:''},selected=null,CHANNEL='Phone';
 try{DB=JSON.parse(localStorage.getItem('atlas-db')||'null');ACT=JSON.parse(localStorage.getItem('atlas-act')||'null')}catch(e){DB=null}
 if(!DB||!DB.length){DB=structuredClone(SEED);ACT=[{t:'09:00',s:'Demo loaded with R101–R108.'}];save()}
 function save(){localStorage.setItem('atlas-db',JSON.stringify(DB));localStorage.setItem('atlas-act',JSON.stringify(ACT))}
@@ -148,9 +147,7 @@ function isOverdue(r){return!['Done','Merged'].includes(r.status)&&slaDue(r)<NOW
 function isDup(r){return r.id==='R104'&&r.status!=='Merged'}
 function score(r){let s=urgency(r)==='Urgent'?100:urgency(r)==='High'?60:urgency(r)==='Normal'?20:0;if(isOverdue(r))s+=80;if(!r.tech&&urgency(r)!=='Low')s+=25;return s}
 function fmt(d){return new Date(d).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}
-const UC={Urgent:'bg-red-500',High:'bg-orange-400',Normal:'bg-sky-400',Low:'bg-slate-500'};
 function chip(u){return `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${u==='Urgent'?'bg-red-500 text-white':u==='High'?'bg-orange-400 text-slate-950':u==='Low'?'bg-slate-700 text-slate-300':'bg-sky-400 text-slate-950'}">${u.toUpperCase()}</span>`}
-function setTab(t){tab=t;['board','map','insights'].forEach(x=>{document.getElementById('view-'+x).classList.toggle('hidden',x!==t);document.getElementById('tab-'+x).className='px-4 py-1.5 rounded-lg '+(x===t?'bg-sky-500 text-slate-950 font-bold':'text-slate-300')});render();if(typeof tourActive!=='undefined'&&tourActive)setTimeout(positionHl,60)}
 function setChannel(c){CHANNEL=c;['Email','WhatsApp','Phone'].forEach(x=>document.getElementById('ch-'+x).className='border rounded-lg py-1 '+(x===c?'bg-sky-500 text-slate-950 font-bold border-sky-500':'border-slate-700 text-slate-300'))}
 function log(s){ACT.unshift({t:'09:00',s});save()}
 function filtered(){let r=[...DB].sort((a,b)=>score(b)-score(a));
@@ -205,17 +202,18 @@ document.getElementById('detail').innerHTML=r?`<div class="flex items-center gap
 <button onclick="waiting('${r.id}')" class="border border-slate-600 rounded-lg py-1.5">Wait part</button>
 <button onclick="done('${r.id}')" class="border border-emerald-500/60 text-emerald-300 rounded-lg py-1.5">Done</button></div>
 ${r.id==='R101'||r.id==='R104'?`<button onclick="mergeDup()" class="mt-1 w-full text-xs border border-amber-400/60 text-amber-300 rounded-lg py-1.5">Merge R104 → R101</button>`:''}`:'<p class="text-sm text-slate-500">Select a ticket.</p>';
-renderMap();renderCharts();renderActivity()}
+renderMap();renderCharts();renderActivity();
+if(typeof tourActive!=='undefined'&&tourActive)positionHl()}
 function renderActivity(){document.getElementById('activity').innerHTML=ACT.map(a=>`<div class="border-b border-slate-800 py-1"><span class="text-slate-500 font-mono">${a.t}</span> — ${a.s}</div>`).join('')}
 function pinColor(r){if(r.status==='Done')return '#34d399';if(isOverdue(r))return '#ef4444';const u=urgency(r);return u==='Urgent'?'#f97316':u==='High'?'#fbbf24':u==='Low'?'#64748b':'#38bdf8'}
 function renderMap(){
 const byCust={};DB.filter(r=>r.status!=='Merged').forEach(r=>{(byCust[r.customer]=byCust[r.customer]||[]).push(r)});
 let svg=`<defs><pattern id="g" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M10 0H0V10" fill="none" stroke="#1e293b" stroke-width=".5"/></pattern></defs><rect width="100" height="62" fill="url(#g)"/><path d="M0 32 H100 M48 0 V62 M0 12 H100 M20 0 V62 M75 0 V62" stroke="#1e293b" stroke-width="1.2"/><text x="2" y="6" fill="#475569" font-size="3">SIMULATED MAP — synthetic sites</text>`;
 Object.entries(byCust).forEach(([c,rs])=>{const p=POS[c]||[50,30];const worst=[...rs].sort((a,b)=>score(b)-score(a))[0];const col=pinColor(worst);const od2=rs.some(isOverdue);
-svg+=`<g class="pin" onclick="selected='${worst.id}';setTab('board')"><circle cx="${p[0]}" cy="${p[1]}" r="${od2?3.4:2.6}" fill="${col}" opacity=".25" ${od2?'class="pulse"':''}/><circle cx="${p[0]}" cy="${p[1]}" r="1.6" fill="${col}" stroke="#020617" stroke-width=".4"/><text x="${p[0]}" y="${p[1]-2.6}" fill="#e2e8f0" font-size="2.6" text-anchor="middle" font-weight="bold">${c}${rs.length>1?' ×'+rs.length:''}</text></g>`});
+svg+=`<g class="pin" onclick="selected='${worst.id}';render()"><circle cx="${p[0]}" cy="${p[1]}" r="${od2?3.4:2.6}" fill="${col}" opacity=".25" ${od2?'class="pulse"':''}/><circle cx="${p[0]}" cy="${p[1]}" r="1.6" fill="${col}" stroke="#020617" stroke-width=".4"/><text x="${p[0]}" y="${p[1]-2.6}" fill="#e2e8f0" font-size="2.6" text-anchor="middle" font-weight="bold">${c}${rs.length>1?' ×'+rs.length:''}</text></g>`});
 document.getElementById('sitemap').innerHTML=svg;
 document.getElementById('maplegend').innerHTML=`<span><i class="inline-block w-2 h-2 rounded-full" style="background:#ef4444"></i> overdue</span><span><i class="inline-block w-2 h-2 rounded-full" style="background:#f97316"></i> urgent</span><span><i class="inline-block w-2 h-2 rounded-full" style="background:#fbbf24"></i> high</span><span><i class="inline-block w-2 h-2 rounded-full" style="background:#38bdf8"></i> normal</span><span><i class="inline-block w-2 h-2 rounded-full" style="background:#34d399"></i> done</span>`;
-document.getElementById('maplist').innerHTML=Object.entries(byCust).map(([c,rs])=>`<button onclick="selected='${[...rs].sort((a,b)=>score(b)-score(a))[0].id}';setTab('board')" class="text-left bg-slate-950 border border-slate-800 rounded-xl px-3 py-2"><b>${c}</b> <span class="text-slate-500">· ${rs.length} ticket${rs.length>1?'s':''}</span><span class="block text-slate-400 truncate">${rs.map(x=>x.id+' ('+urgency(x)+')').join(', ')}</span></button>`).join('')}
+document.getElementById('maplist').innerHTML=Object.entries(byCust).map(([c,rs])=>`<button onclick="selected='${[...rs].sort((a,b)=>score(b)-score(a))[0].id}';render()" class="text-left bg-slate-950 border border-slate-800 rounded-xl px-3 py-2"><b>${c}</b> <span class="text-slate-500">· ${rs.length} ticket${rs.length>1?'s':''}</span><span class="block text-slate-400 truncate">${rs.map(x=>x.id+' ('+urgency(x)+')').join(', ')}</span></button>`).join('')}
 function renderCharts(){
 if(!window.Chart)return;charts.forEach(c=>c.destroy());charts=[];Chart.defaults.color='#94a3b8';Chart.defaults.borderColor='#1e293b';
 const rows=filtered();const cu={Urgent:0,High:0,Normal:0,Low:0};rows.forEach(r=>cu[urgency(r)]++);
@@ -227,29 +225,29 @@ charts.push(new Chart(document.getElementById('c-status'),{type:'bar',data:{labe
 
 /* TOUR */
 const STEPS=[
-{t:'Welcome to Atlas',b:'Missed urgents, unclear ownership, repeat status calls. This board fixes all three. 30 seconds, 5 stops.',s:null},
-{t:'1 · Triage queue',b:'Sorted by risk, not arrival time. R101 Urgent + Overdue sits on top. Click any card to work it.',s:'#list'},
-{t:'2 · Filters',b:'Slice by status, urgency, or channel. Try High + WhatsApp to isolate the pump chase R102.',s:'#filters'},
-{t:'3 · Ticket actions',b:'Assign T1 T2 T3, set a visit time, copy a customer reply, or merge duplicates. One ticket, one owner.',s:'#detail'},
-{t:'4 · Map',b:'Every ticket pinned on a simulated area. Red pulsing = overdue. Click a pin to jump to the ticket.',s:'#view-map,#sitemap'},
-{t:'5 · Insights',b:'Charts follow your filters. Activity log proves progress to the manager.',s:'#view-insights,#c-urg'}];
+{t:'Welcome to Atlas',b:'One dashboard. Insights on top, queue and map below. 30 seconds, 5 stops.',s:null},
+{t:'1 · Insights',b:'Charts follow your filters. Urgency mix, tech load, queue by status.',s:'#insights'},
+{t:'2 · Queue + filters',b:'Sorted by risk. Slice by status, urgency, or channel. Click any card.',s:'#filters'},
+{t:'3 · Ticket actions',b:'Assign tech, set visit time, copy a customer reply, merge duplicates.',s:'#detail'},
+{t:'4 · Map',b:'Every ticket pinned on a simulated area. Pulsing red is overdue. Click a pin.',s:'#dash-map'},
+{t:'5 · Activity',b:'Every action is logged here as proof for the manager.',s:'#activity'}];
 let ti=0,tourActive=false,tourEl=null;
-function startTour(){ti=0;tourActive=true;if(tab!=='board')setTab('board');showStep()}
+function startTour(){ti=0;tourActive=true;showStep()}
 function positionHl(){const hl=document.getElementById('tour-hl');if(!tourActive||!tourEl||!document.contains(tourEl)){hl.style.display='none';return}
 const b=tourEl.getBoundingClientRect();hl.style.display='block';hl.style.left=(b.left-6)+'px';hl.style.top=(b.top-6)+'px';hl.style.width=(b.width+12)+'px';hl.style.height=(b.height+12)+'px'}
-function showStep(){const st=STEPS[ti];if(st.s&&st.s.includes('#view-map'))setTab('map');if(st.s&&st.s.includes('#view-insights'))setTab('insights');if(ti>=1&&ti<=3&&tab!=='board')setTab('board');
+function showStep(){const st=STEPS[ti];
 document.getElementById('tour-card').classList.remove('hidden');document.getElementById('tour-hl').classList.remove('hidden');
 document.getElementById('tour-title').textContent=st.t;document.getElementById('tour-body').textContent=st.b;
 document.getElementById('tour-pos').textContent=(ti+1)+' / '+STEPS.length;document.getElementById('tour-next').textContent=ti===STEPS.length-1?'Finish':'Next';
-tourEl=st.s?document.querySelector(st.s.split(',')[0]):null;
+tourEl=st.s?document.querySelector(st.s):null;
 if(!tourEl){document.getElementById('tour-hl').style.display='none'}else{positionHl();tourEl.scrollIntoView({block:'nearest',behavior:'smooth'});setTimeout(positionHl,350)}}
 function tourNext(){if(ti<STEPS.length-1){ti++;showStep()}else endTour()}
 function tourBack(){if(ti>0){ti--;showStep()}}
-function endTour(){tourActive=false;tourEl=null;document.getElementById('tour-card').classList.add('hidden');const hl=document.getElementById('tour-hl');hl.classList.add('hidden');hl.style.display='none';localStorage.setItem('atlas-tour-seen','1');if(tab!=='board')setTab('board')}
+function endTour(){tourActive=false;tourEl=null;document.getElementById('tour-card').classList.add('hidden');const hl=document.getElementById('tour-hl');hl.classList.add('hidden');hl.style.display='none';localStorage.setItem('atlas-tour-seen','1')}
 window.addEventListener('scroll',()=>{if(tourActive)positionHl()},true);
 window.addEventListener('resize',()=>{if(tourActive)positionHl()});
 window.addEventListener('keydown',e=>{if(e.key==='Escape'&&tourActive)endTour()});
-setChannel('Phone');setTab('board');
+setChannel('Phone');render();
 if(!localStorage.getItem('atlas-tour-seen'))setTimeout(startTour,700);
 </script>
 </body>
