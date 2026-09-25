@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Atlas — Service Control Board</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial}
+.card{transition:box-shadow .15s,transform .15s}
+.card:hover{box-shadow:0 6px 22px rgba(0,0,0,.10)}
+.pulse{animation:pulse 1.6s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
+.log{font-size:12px}
+::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:8px}
+</style>
+</head>
+<body class="bg-slate-100 text-slate-900">
+<div class="max-w-[1280px] mx-auto p-4 md:p-6">
+
+<!-- HEADER -->
+<header class="bg-white rounded-2xl p-4 md:p-5 shadow-sm border flex flex-col md:flex-row md:items-center gap-4">
+<div class="flex-1">
+<div class="flex items-center gap-2">
+<div class="w-9 h-9 rounded-xl bg-blue-700 text-white grid place-items-center font-bold">A</div>
+<div>
+<h1 class="font-bold text-lg leading-tight">Atlas Industrial Services — Control Board</h1>
+<p class="text-xs text-slate-500">Fictional demo clock: <span class="font-mono font-semibold text-slate-700">Oct 1, 2026 · 09:00 local</span> · Techs: T1, T2, T3 · <button onclick="resetDemo()" class="underline text-blue-700">reset demo</button></p>
+</div>
+</div>
+<p class="text-xs text-slate-500 mt-2 max-w-3xl"><b>Assumptions (not supplied facts):</b> Urgent SLA 4h, High 24h, Normal 72h, Low 7d. Urgency auto-scored from keywords (cold-room stopping, pressure warning, goods at risk, today). Capacity = 3 active jobs per tech. No real email/WhatsApp integration — intake is simulated.</p>
+</div>
+<div id="stats" class="grid grid-cols-2 md:grid-cols-4 gap-2 md:w-[520px]"></div>
+</header>
+
+<!-- OPS BAR -->
+<div class="grid md:grid-cols-3 gap-4 mt-4">
+<div class="bg-white rounded-2xl border p-4">
+<h2 class="font-bold text-sm">⚡ Do next <span class="text-slate-400 font-normal">— sorted by risk</span></h2>
+<div id="doNext" class="mt-2 space-y-2"></div>
+</div>
+<div class="bg-white rounded-2xl border p-4">
+<h2 class="font-bold text-sm">🧑‍🔧 Who takes the next job?</h2>
+<div id="techs" class="mt-2 space-y-2"></div>
+<div class="mt-3 text-xs bg-slate-50 border rounded-xl p-2">
+<b>Demo script (60 sec):</b> 1) Open R101 → Assign T1 + set visit 10:30 → 2) Merge R104 into R101 → 3) Resolve R107 Done → 4) Copy status reply for R102 → overdue count drops live.
+</div>
+</div>
+<div class="bg-white rounded-2xl border p-4">
+<h2 class="font-bold text-sm">📞 Log new request <span class="text-slate-400 font-normal">— simulates Email / WhatsApp / Phone</span></h2>
+<div class="grid grid-cols-3 gap-2 mt-2 text-xs">
+<button onclick="setChannel('Email')" id="ch-Email" class="border rounded-lg py-1">Email</button>
+<button onclick="setChannel('WhatsApp')" id="ch-WhatsApp" class="border rounded-lg py-1">WhatsApp</button>
+<button onclick="setChannel('Phone')" id="ch-Phone" class="border rounded-lg py-1">Phone</button>
+</div>
+<input id="f-cust" class="mt-2 w-full border rounded-lg px-2 py-1.5 text-sm" placeholder="Customer e.g. C08" />
+<input id="f-msg" class="mt-2 w-full border rounded-lg px-2 py-1.5 text-sm" placeholder="Message e.g. Freezer alarm, need someone today" />
+<button onclick="addRequest()" class="mt-2 w-full bg-blue-700 text-white rounded-lg py-2 text-sm font-semibold">Add to triage queue</button>
+<div class="mt-2 flex gap-2">
+<input id="q" oninput="render()" class="flex-1 border rounded-lg px-2 py-1.5 text-sm" placeholder="Search id, customer, message…" />
+<select id="f-filter" onchange="render()" class="border rounded-lg px-2 py-1.5 text-sm"><option value="">All</option><option>Unassigned</option><option>Overdue</option><option>Duplicates</option><option>Needs info</option><option>Waiting part</option></select>
+</div>
+</div>
+</div>
+
+<!-- MAIN -->
+<div class="grid lg:grid-cols-[1fr_380px] gap-4 mt-4">
+<div>
+<div class="flex items-center justify-between">
+<h2 class="font-bold">Triage queue <span id="count" class="text-slate-400 font-normal text-sm"></span></h2>
+<p class="text-xs text-slate-500">Sorted: overdue + urgent first. Click a card to work it.</p>
+</div>
+<div id="list" class="mt-2 space-y-3"></div>
+</div>
+<div>
+<div class="bg-white rounded-2xl border p-4 sticky top-4">
+<div id="detail"><p class="text-sm text-slate-500">Select a request to assign, schedule, merge, or reply.</p></div>
+<h2 class="font-bold text-sm mt-4">🧾 Activity <span class="font-normal text-slate-400">— proof for manager</span></h2>
+<div id="activity" class="log mt-2 space-y-1 max-h-64 overflow-auto"></div>
+</div>
+</div>
+</div>
+
+<footer class="text-xs text-slate-500 mt-6 pb-10">
+Built as smallest useful Atlas fix: <b>missed urgents → triage + SLA, who-does-next → capacity, status-chasing → one-click reply, duplicates + stale jobs → merge/done hygiene.</b> All data synthetic, stored in browser localStorage only.
+</footer>
+</div>
+
+<script>
+const NOW = new Date('2026-10-01T09:00:00');
+let CHANNEL='Phone';
+let selected=null;
+const SLA_H={Urgent:4,High:24,Normal:72,Low:168};
+const SEED=[
+{id:'R101',received:'2026-09-30T16:10:00',channel:'Email',customer:'C01',msg:'Cold-room unit keeps stopping. Stored goods could be affected.',status:'Unassigned',tech:null,visit:null,note:''},
+{id:'R102',received:'2026-10-01T08:20:00',channel:'WhatsApp',customer:'C02',msg:"Can you confirm when someone is coming for yesterday's pump request?",status:'Assigned',tech:'T1',visit:null,note:'No visit time recorded'},
+{id:'R103',received:'2026-09-30T11:00:00',channel:'Phone',customer:'C03',msg:'Routine inspection request for next week.',status:'Open',tech:null,visit:null,note:''},
+{id:'R104',received:'2026-10-01T08:25:00',channel:'Email',customer:'C01',msg:'Following up on the cold-room fault reported yesterday.',status:'New',tech:null,visit:null,note:'May duplicate R101'},
+{id:'R105',received:'2026-10-01T08:30:00',channel:'Phone',customer:'C04',msg:'Machine not working. Please call us.',status:'Needs info',tech:null,visit:null,note:'No equipment identifier or urgency recorded'},
+{id:'R106',received:'2026-09-29T14:00:00',channel:'Email',customer:'C05',msg:'We are waiting for the replacement part and an update.',status:'Waiting part',tech:'T2',visit:null,note:'Waiting for part'},
+{id:'R107',received:'2026-09-30T15:00:00',channel:'WhatsApp',customer:'C06',msg:'Thanks, the unit is running again.',status:'In progress',tech:'T3',visit:null,note:'Customer says fixed — still marked in progress'},
+{id:'R108',received:'2026-10-01T08:40:00',channel:'Email',customer:'C07',msg:'Please send someone today for a pressure warning.',status:'Unassigned',tech:null,visit:null,note:'Details need clarification'},
+];
+let DB, ACT;
+try{DB=JSON.parse(localStorage.getItem('atlas-db')||'null');ACT=JSON.parse(localStorage.getItem('atlas-act')||'null')}catch(e){DB=null}
+if(!DB||!DB.length){DB=structuredClone(SEED);ACT=[{t:'Oct 1, 09:00',s:'Demo loaded with R101–R108. Fictional clock set to Oct 1 09:00.'}];save()}
+function save(){localStorage.setItem('atlas-db',JSON.stringify(DB));localStorage.setItem('atlas-act',JSON.stringify(ACT))}
+function resetDemo(){localStorage.removeItem('atlas-db');localStorage.removeItem('atlas-act');location.reload()}
+function urgency(r){
+ const m=(r.msg+' '+(r.note||'')).toLowerCase();
+ if(/cold.room.*stop|stopping|goods.*affect|pressure warning|not cooling|alarm|leak|shut ?down|send someone today/.test(m))return'Urgent';
+ if(/follow.*up|confirm when|yesterday|waiting.*part|call us|machine not working/.test(m))return'High';
+ if(/routine|next week|inspection/.test(m))return'Low';
+ return'Normal';
+}
+function slaDue(r){const u=urgency(r);return new Date(new Date(r.received).getTime()+SLA_H[u]*3600e3)}
+function isOverdue(r){if(r.status==='Done'||r.status==='Merged')return false;return slaDue(r)<NOW}
+function isDup(r){return r.id==='R104'||/duplicat/.test((r.note||'').toLowerCase())||(r.customer==='C01'&&/cold-room|cold room/.test(r.msg.toLowerCase())&&r.id!=='R101')}
+function needsInfo(r){return r.status==='Needs info'||/no equipment|need clarification|details need/.test((r.note||'').toLowerCase())}
+function score(r){let s=0;const u=urgency(r);s+=u==='Urgent'?100:u==='High'?60:u==='Normal'?20:0;if(isOverdue(r))s+=80;if(!r.tech&&u!=='Low')s+=25;if(isDup(r))s+=5;if(r.status==='Waiting part')s-=10;return s}
+function fmt(d){return new Date(d).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}
+function badge(u){return u==='Urgent'?'<span class="text-[11px] font-bold bg-red-600 text-white px-2 py-0.5 rounded-full">URGENT</span>':u==='High'?'<span class="text-[11px] font-bold bg-orange-500 text-white px-2 py-0.5 rounded-full">HIGH</span>':u==='Low'?'<span class="text-[11px] bg-slate-200 px-2 py-0.5 rounded-full">LOW</span>':'<span class="text-[11px] bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">NORMAL</span>'}
+function setChannel(c){CHANNEL=c;['Email','WhatsApp','Phone'].forEach(x=>document.getElementById('ch-'+x).className='border rounded-lg py-1 '+(x===c?'bg-slate-900 text-white':'text-sm')); }
+setChannel('Phone');
+function log(s){ACT.unshift({t:'Oct 1, 09:00',s});save();renderActivity()}
+function addRequest(){
+ const cust=(document.getElementById('f-cust').value||'C0X').trim()||'C0X';
+ const msg=(document.getElementById('f-msg').value||'').trim();
+ if(!msg){alert('Type the customer message first — e.g. Freezer alarm, need someone today.');return}
+ const n=109+DB.filter(r=>/^R10\d|^R11/.test(r.id)&&!SEED.find(s=>s.id===r.id)).length+ (DB.length>=8&&!DB.find(r=>r.id==='R109')?0:0);
+ const id='R'+(109+DB.filter(r=>r.id.startsWith('R10')||r.id.startsWith('R11')).length-8+ (DB.find(r=>r.id==='R109')?DB.length-8:0));
+ const nid='R'+(110+Math.floor(Math.random()*800));
+ const r={id:nid,received:'2026-10-01T09:00:00',channel:CHANNEL,customer:cust,msg,status:'New',tech:null,visit:null,note:'Logged via '+CHANNEL+' simulation'};
+ DB.unshift(r);document.getElementById('f-msg').value='';log(`<b>${nid}</b> logged via ${CHANNEL} (${cust}): “${msg.slice(0,80)}” → auto-triaged <b>${urgency(r)}</b>.`);selected=nid;save();render();
+}
+function assign(id,t){const r=DB.find(x=>x.id===id);r.tech=t;if(r.status==='Unassigned'||r.status==='New'||r.status==='Open')r.status='Assigned';log(`<b>${id}</b> assigned to <b>${t}</b>.`);save();render()}
+function setVisit(id){const v=prompt('Visit time (e.g. Today 10:30, Tomorrow 09:00):','Today 10:30');if(!v)return;const r=DB.find(x=>x.id===id);r.visit=v;if(r.status==='Assigned')r.status='Scheduled';log(`<b>${id}</b> visit set: <b>${v}</b>.`);save();render()}
+function done(id){const r=DB.find(x=>x.id===id);r.status='Done';log(`<b>${id}</b> marked <b>Done</b> — frees ${r.tech||'capacity'}.`);save();render()}
+function waiting(id){const r=DB.find(x=>x.id===id);r.status='Waiting part';log(`<b>${id}</b> → <b>Waiting part</b>. Customer update due.`);save();render()}
+function mergeDup(){const a=DB.find(x=>x.id==='R104');if(!a||a.status==='Merged')return;const b=DB.find(x=>x.id==='R101');a.status='Merged';a.tech=b.tech;b.note='Merged R104 (C01 follow-up) — single job, one visit.';log(`<b>R104</b> merged into <b>R101</b>. One job, one visit, one update.`);save();render()}
+function markDone107(){done('R107')}
+function copyReply(id){
+ const r=DB.find(x=>x.id===id);
+ const txt=`Hello ${r.customer}, update on ${r.id}: ${r.tech?`technician ${r.tech} assigned${r.visit?`, visit ${r.visit}`:', visit time to confirm'}`:'triaged as '+urgency(r)+', assigning now'}. ${r.status==='Waiting part'?'Part ordered, we will update you by tomorrow 12:00.':'We will message you 30 min before arrival.'} — Atlas Services`;
+ navigator.clipboard?.writeText(txt);log(`Status reply copied for <b>${id}</b>. Paste to Email/WhatsApp — stops chase calls.`);alert(txt);
+}
+function render(){
+ const q=(document.getElementById('q').value||'').toLowerCase();
+ const f=document.getElementById('f-filter').value;
+ let rows=[...DB].sort((a,b)=>score(b)-score(a));
+ if(q)rows=rows.filter(r=>(r.id+r.customer+r.msg+(r.tech||'')).toLowerCase().includes(q));
+ if(f==='Unassigned')rows=rows.filter(r=>!r.tech&&r.status!=='Done'&&r.status!=='Merged');
+ if(f==='Overdue')rows=rows.filter(isOverdue);
+ if(f==='Duplicates')rows=rows.filter(isDup);
+ if(f==='Needs info')rows=rows.filter(needsInfo);
+ if(f==='Waiting part')rows=rows.filter(r=>r.status==='Waiting part');
+ document.getElementById('count').textContent=`· ${rows.length} shown`;
+ document.getElementById('list').innerHTML=rows.map(r=>{
+  const u=urgency(r),od=isOverdue(r);
+  return `<div onclick="selected='${r.id}';render()" class="card cursor-pointer bg-white border ${selected===r.id?'border-blue-600 ring-2 ring-blue-100':''} rounded-2xl p-3">
+  <div class="flex items-center gap-2 flex-wrap">
+  <span class="font-mono font-bold">${r.id}</span>${badge(u)}
+  ${od?'<span class="text-[11px] font-bold bg-red-100 text-red-700 px-2 py-0.5 rounded-full pulse">OVERDUE · SLA '+fmt(slaDue(r))+'</span>':`<span class="text-[11px] text-slate-500">SLA ${fmt(slaDue(r))}</span>`}
+  ${isDup(r)&&r.status!=='Merged'?'<span class="text-[11px] bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">possible duplicate</span>':''}
+  ${needsInfo(r)?'<span class="text-[11px] bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full">needs info</span>':''}
+  <span class="ml-auto text-[11px] text-slate-500">${r.channel} · ${r.customer} · ${fmt(r.received)}</span>
+  </div>
+  <p class="text-sm mt-1">${r.msg}</p>
+  <div class="flex items-center gap-2 mt-2 text-xs">
+  <span class="px-2 py-0.5 rounded-full border">${r.status}${r.tech?' · '+r.tech:''}${r.visit?' · '+r.visit:''}</span>
+  ${r.note?`<span class="text-slate-500 truncate">— ${r.note}</span>`:''}
+  </div></div>`}).join('')||'<p class="text-sm text-slate-500">No matches.</p>';
+
+ const open=DB.filter(r=>r.status!=='Done'&&r.status!=='Merged');
+ const urgUn=DB.filter(r=>urgency(r)==='Urgent'&&!r.tech&&r.status!=='Done'&&r.status!=='Merged').length;
+ const od=DB.filter(isOverdue).length;
+ const wait=DB.filter(r=>r.status==='Waiting part').length;
+ const doneN=DB.filter(r=>r.status==='Done').length;
+ document.getElementById('stats').innerHTML=`
+  <div class="bg-red-50 border border-red-200 rounded-xl p-2 text-center"><div class="text-xl font-bold text-red-700">${urgUn}</div><div class="text-[11px]">urgent unassigned</div></div>
+  <div class="bg-orange-50 border border-orange-200 rounded-xl p-2 text-center"><div class="text-xl font-bold text-orange-700">${od}</div><div class="text-[11px]">overdue now</div></div>
+  <div class="bg-amber-50 border border-amber-200 rounded-xl p-2 text-center"><div class="text-xl font-bold">${wait}</div><div class="text-[11px]">waiting part</div></div>
+  <div class="bg-green-50 border border-green-200 rounded-xl p-2 text-center"><div class="text-xl font-bold text-green-700">${doneN}</div><div class="text-[11px]">done</div></div>`;
+
+ const top=[...open].sort((a,b)=>score(b)-score(a)).slice(0,3);
+ document.getElementById('doNext').innerHTML=top.map((r,i)=>`<button onclick="selected='${r.id}';render()" class="w-full text-left border rounded-xl px-2 py-1.5 text-xs"><b>${i+1}. ${r.id}</b> · ${urgency(r)}${isOverdue(r)?' · OVERDUE':''} — ${r.msg.slice(0,60)}… <span class="text-blue-700 underline">open</span></button>`).join('');
+
+ ['T1','T2','T3'].forEach(t=>{
+  const jobs=DB.filter(r=>r.tech===t&&r.status!=='Done'&&r.status!=='Merged');
+  const el=document.getElementById('techs');
+  if(!el.dataset.built){el.dataset.built=1}
+ });
+ document.getElementById('techs').innerHTML=['T1','T2','T3'].map(t=>{
+  const jobs=DB.filter(r=>r.tech===t&&r.status!=='Done'&&r.status!=='Merged');
+  const free=3-jobs.length;
+  return `<div class="border rounded-xl px-2 py-1.5 text-xs flex items-center gap-2"><b>${t}</b><span class="${free>0?'text-green-700':'text-red-700'} font-semibold">${free>0?free+' free':'full'}</span><span class="text-slate-500 truncate">${jobs.map(j=>j.id).join(', ')||'— no active jobs'}</span></div>`}).join('');
+
+ const r=DB.find(x=>x.id===selected);
+ if(r){
+  const u=urgency(r);
+  document.getElementById('detail').innerHTML=`
+  <div class="flex items-center gap-2"><span class="font-mono font-bold text-lg">${r.id}</span>${badge(u)}<span class="ml-auto text-xs text-slate-500">${r.channel} · ${fmt(r.received)}</span></div>
+  <p class="text-sm mt-1"><b>${r.customer}:</b> ${r.msg}</p>
+  ${r.note?`<p class="text-xs text-slate-600 mt-1 bg-slate-50 border rounded-lg p-2">Note: ${r.note}</p>`:''}
+  <div class="text-xs mt-2">Status: <b>${r.status}</b>${r.tech?' · Tech <b>'+r.tech+'</b>':''}${r.visit?' · Visit <b>'+r.visit+'</b>':''} · SLA ${fmt(slaDue(r))} ${isOverdue(r)?'<b class="text-red-600">OVERDUE</b>':''}</div>
+  <div class="grid grid-cols-3 gap-2 mt-3 text-xs font-semibold">
+  <button onclick="assign('${r.id}','T1')" class="border rounded-lg py-1.5">→ T1</button>
+  <button onclick="assign('${r.id}','T2')" class="border rounded-lg py-1.5">→ T2</button>
+  <button onclick="assign('${r.id}','T3')" class="border rounded-lg py-1.5">→ T3</button>
+  </div>
+  <div class="grid grid-cols-2 gap-2 mt-2 text-xs">
+  <button onclick="setVisit('${r.id}')" class="bg-slate-900 text-white rounded-lg py-1.5">Set visit time</button>
+  <button onclick="copyReply('${r.id}')" class="bg-blue-700 text-white rounded-lg py-1.5">Copy status reply</button>
+  <button onclick="waiting('${r.id}')" class="border rounded-lg py-1.5">Waiting part</button>
+  <button onclick="done('${r.id}')" class="border border-green-600 text-green-700 rounded-lg py-1.5">Mark Done</button>
+  </div>
+  ${r.id==='R101'?`<button onclick="mergeDup()" class="mt-2 w-full text-xs border border-amber-500 text-amber-700 rounded-lg py-1.5">Merge R104 into R101 (duplicate)</button>`:''}
+  ${r.id==='R104'?`<button onclick="mergeDup()" class="mt-2 w-full text-xs border border-amber-500 text-amber-700 rounded-lg py-1.5">Merge this into R101</button>`:''}
+  ${r.id==='R107'?`<button onclick="markDone107()" class="mt-2 w-full text-xs bg-green-700 text-white rounded-lg py-1.5">Customer confirmed fixed → Close R107</button>`:''}
+  ${r.id==='R105'?`<div class="mt-2 text-xs bg-purple-50 border border-purple-200 rounded-lg p-2">Missing: equipment ID + urgency. Ask: “Which machine / model? Is it fully stopped or degraded? Any error code?” Then re-triage.</div>`:''}
+  ${r.id==='R108'?`<div class="mt-2 text-xs bg-red-50 border border-red-200 rounded-lg p-2">Needs clarification but SLA is today. Call now, confirm pressure reading + site access, assign today slot.</div>`:''}
+  `;
+ }
+ renderActivity();
+}
+function renderActivity(){document.getElementById('activity').innerHTML=ACT.map(a=>`<div class="border-b py-1"><span class="text-slate-400 font-mono">${a.t}</span> — ${a.s}</div>`).join('')}
+render();
+</script>
+</body>
+</html>
